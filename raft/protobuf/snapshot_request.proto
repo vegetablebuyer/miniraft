@@ -1,0 +1,8 @@
+syntax = "proto3";
+package protobuf;
+
+message SnapshotRequest {
+	string LeaderName=1;
+	uint64 LastIndex=2;
+	uint64 LastTerm=3;
+}

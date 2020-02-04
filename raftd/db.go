@@ -1,4 +1,4 @@
-package main
+package raftd
 
 import (
 	"sync"
@@ -6,7 +6,7 @@ import (
 
 // The key-value database
 type DB struct {
-	data map[string]string
+	data  map[string]string
 	mutex sync.RWMutex
 }
 
@@ -26,6 +26,13 @@ func (db *DB) Get(key string) string {
 
 // Sets the value for the given key
 func (db *DB) Set(key string, value string) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	db.data[key] = value
+}
+
+// Sets the value for a given key.
+func (db *DB) Put(key string, value string) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 	db.data[key] = value

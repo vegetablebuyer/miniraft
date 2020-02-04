@@ -11,16 +11,15 @@ import (
 	"./protobuf"
 )
 
-// A log entry stores a single item in the log
+// A log entry stores a single item in the log.
 type LogEntry struct {
-	pb 		 *protobuf.LogEntry
-	Position int64 //position in the log file
-	log 	 *Log
-	event 	 *ev
+	pb       *protobuf.LogEntry
+	Position int64 // position in the log file
+	log      *Log
+	event    *ev
 }
 
-
-// Creates a new log entry associated with a log
+// Creates a new log entry associated with a log.
 func newLogEntry(log *Log, event *ev, index uint64, term uint64, command Command) (*LogEntry, error) {
 	var buf bytes.Buffer
 	var commandName string
@@ -38,16 +37,16 @@ func newLogEntry(log *Log, event *ev, index uint64, term uint64, command Command
 	}
 
 	pb := &protobuf.LogEntry{
-		Index: 		 *proto.Uint64(index),
-		Term: 		 *proto.Uint64(term),
+		Index:       *proto.Uint64(index),
+		Term:        *proto.Uint64(term),
 		CommandName: *proto.String(commandName),
-		Command: 	 buf.Bytes(),
+		Command:     buf.Bytes(),
 	}
 
 	e := &LogEntry{
-		pb: 	pb,
-		log: 	log,
-		event:	event,
+		pb:    pb,
+		log:   log,
+		event: event,
 	}
 
 	return e, nil
@@ -69,9 +68,25 @@ func (e *LogEntry) Command() []byte {
 	return e.pb.Command
 }
 
+// Encodes the log entry to a buffer. Returns the number of bytes
+// written and any error that may have occurred.
+func (e *LogEntry) Encode(w io.Writer) (int, error) {
+	b, err := proto.Marshal(e.pb)
+	if err != nil {
+		return -1, err
+	}
 
-// Decode the log entry from a buffer, Return the number of bytes read and any error that occurs
+	if _, err = fmt.Fprintf(w, "%8x\n", len(b)); err != nil {
+		return -1, err
+	}
+
+	return w.Write(b)
+}
+
+// Decodes the log entry from a buffer. Returns the number of bytes read and
+// any error that occurs.
 func (e *LogEntry) Decode(r io.Reader) (int, error) {
+
 	var length int
 	_, err := fmt.Fscanf(r, "%8x\n", &length)
 	if err != nil {
@@ -85,6 +100,9 @@ func (e *LogEntry) Decode(r io.Reader) (int, error) {
 		return -1, err
 	}
 
+	if err = proto.Unmarshal(data, e.pb); err != nil {
+		return -1, err
+	}
+
 	return length + 8 + 1, nil
 }
-
