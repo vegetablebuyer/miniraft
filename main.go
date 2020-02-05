@@ -36,6 +36,7 @@ func main() {
 	rand.Seed(time.Now().Unix())
 
 	raft.RegisterCommand(&raftd.WriteCommand{})
+	raft.RegisterCommand(&raftd.CobblerCommand{})
 
 	path := flag.Arg(0)
 	if err := os.MkdirAll(path, 0744); err != nil {

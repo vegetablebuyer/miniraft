@@ -114,6 +114,7 @@ func (s *Server) ListenAndServe(leader string) error {
 
 	s.router.HandleFunc("/db/{key}", s.readHandler).Methods("GET")
 	s.router.HandleFunc("/db/{key}", s.writeHandler).Methods("POST")
+	s.router.HandleFunc("/cobbler/edit", s.cobblerHandler).Methods("POST")
 	s.router.HandleFunc("/join", s.joinHandler).Methods("POST")
 
 	log.Println("Listening at:", s.connectionString())
@@ -176,6 +177,27 @@ func (s *Server) writeHandler(w http.ResponseWriter, req *http.Request) {
 
 	// Execute the command against the Raft server.
 	_, err = s.raftServer.Do(NewWriteCommand(vars["key"], value))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
+func (s *Server) cobblerHandler(w http.ResponseWriter, req *http.Request) {
+
+	// Read the value from the POST body.
+	b, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	args := &CobblerCommand{}
+	if err = json.Unmarshal(b, args); err != nil {
+		panic(err)
+	}
+
+	// Execute the command against the Raft server.
+	//_, err = s.raftServer.Do(NewWriteCommand(vars["key"], value))
+	_, err = s.raftServer.Do(NewCobblerCommand(args.SerialNumber, args.Args))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
