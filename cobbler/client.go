@@ -50,7 +50,6 @@ func NewClient() *Client {
 		client:       client,
 		sharedSecret: tokenData,
 	}
-	c.login()
 	return c
 }
 
@@ -81,10 +80,34 @@ func (c *Client) login() {
 	}
 }
 
-func (c *Client) EditSystem(serialNumber string, arg map[string]interface{}) {
-	args := []interface{}{"system", serialNumber, "edit", arg, c.token}
-	err := c.client.Call("xapi_object_edit", args, nil)
+func (c *Client) logout() {
+	args := []interface{}{c.token}
+	err := c.client.Call("logout", args, nil)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (c *Client) EditSystem(serialNumber string, arg map[string]interface{}) error {
+	c.login()
+	defer c.logout()
+	args := []interface{}{"system", serialNumber, "edit", arg, c.token}
+	err := c.client.Call("xapi_object_edit", args, nil)
+	return err
+}
+
+func (c *Client) AddSystem(serialNumber string, arg []map[string]interface{}) error {
+	c.login()
+	defer c.logout()
+	args := []interface{}{"system", serialNumber, "add", c.token}
+	err := c.client.Call("xapi_object_edit", args, nil)
+	return err
+}
+
+func (c *Client) RemoveSystem(serialNumber string) error {
+	c.login()
+	defer c.logout()
+	args := []interface{}{"system", serialNumber, "remove", c.token}
+	err := c.client.Call("remove_system", args, nil)
+	return err
 }

@@ -197,7 +197,7 @@ func (s *Server) cobblerHandler(w http.ResponseWriter, req *http.Request) {
 
 	// Execute the command against the Raft server.
 	//_, err = s.raftServer.Do(NewWriteCommand(vars["key"], value))
-	_, err = s.raftServer.Do(NewCobblerCommand(args.SerialNumber, args.Args))
+	_, err = s.raftServer.Do(NewCobblerCommand(args.SerialNumber, args.Action, args.Args))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
