@@ -114,7 +114,7 @@ func (s *Server) ListenAndServe(leader string) error {
 
 	s.router.HandleFunc("/db/{key}", s.readHandler).Methods("GET")
 	s.router.HandleFunc("/db/{key}", s.writeHandler).Methods("POST")
-	s.router.HandleFunc("/cobbler/edit", s.cobblerHandler).Methods("POST")
+	s.router.HandleFunc("/cobbler", s.cobblerHandler).Methods("POST")
 	s.router.HandleFunc("/join", s.joinHandler).Methods("POST")
 
 	log.Println("Listening at:", s.connectionString())

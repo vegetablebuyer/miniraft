@@ -927,6 +927,9 @@ func (s *server) processCommand(command Command, e *ev) {
 		commitIndex := s.log.currentIndex()
 		s.log.setCommitIndex(commitIndex)
 		s.debugln("commit index ", commitIndex)
+	} else {
+		s.processAppendEntriesResponse(
+			newAppendEntriesResponse(s.currentTerm, true, s.log.currentIndex(), s.log.CommitIndex()))
 	}
 }
 
@@ -944,7 +947,6 @@ func (s *server) AppendEntries(req *AppendEntriesRequest) *AppendEntriesResponse
 // Processes the "append entries" request.
 func (s *server) processAppendEntriesRequest(req *AppendEntriesRequest) (*AppendEntriesResponse, bool) {
 	s.traceln("server.ae.process")
-
 	if req.Term < s.currentTerm {
 		s.debugln("server.ae.error: stale term")
 		return newAppendEntriesResponse(s.currentTerm, false, s.log.currentIndex(), s.log.CommitIndex()), false

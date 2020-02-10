@@ -182,7 +182,9 @@ func (l *Log) open(path string) error {
 				if err != nil {
 					continue
 				}
-				l.ApplyFunc(entry, command)
+				if command.CommandName() != "cobbler" {
+					l.ApplyFunc(entry, command)
+				}
 			}
 			debugln("open.log.append log index ", entry.Index())
 		}

@@ -9,13 +9,13 @@ import (
 
 // This command writes a value to a key.
 type CobblerCommand struct {
-	SerialNumber string                   `json:"serialNumber"`
-	Action       string                   `json:"action"`
-	Args         []map[string]interface{} `json:"args"`
+	SerialNumber string      `json:"serialNumber"`
+	Action       string      `json:"action"`
+	Args         interface{} `json:"args"`
 }
 
 // Creates a new write command.
-func NewCobblerCommand(serialNumber string, action string, args []map[string]interface{}) *CobblerCommand {
+func NewCobblerCommand(serialNumber string, action string, args interface{}) *CobblerCommand {
 	return &CobblerCommand{
 		SerialNumber: serialNumber,
 		Action:       action,
@@ -33,13 +33,21 @@ func (c *CobblerCommand) Apply(server raft.Server) (interface{}, error) {
 	var err error
 	switch c.Action {
 	case "edit":
-		for _, args := range c.Args {
+		value, ok := c.Args.([]interface{})
+		if !ok {
+			err = errors.New("system edit args should be []map[string]interface{}")
+		}
+		for _, args := range value {
 			if err = cli.EditSystem(c.SerialNumber, args); err != nil {
 				return nil, err
 			}
 		}
 	case "add":
-		if err = cli.AddSystem(c.SerialNumber, c.Args); err != nil {
+		value, ok := c.Args.(map[string]interface{})
+		if !ok {
+			err = errors.New("system add args should be map[string]interface{}")
+		}
+		if err = cli.AddSystem(c.SerialNumber, value); err != nil {
 			return nil, err
 		}
 	case "remove":

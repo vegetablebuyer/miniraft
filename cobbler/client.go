@@ -88,7 +88,7 @@ func (c *Client) logout() {
 	}
 }
 
-func (c *Client) EditSystem(serialNumber string, arg map[string]interface{}) error {
+func (c *Client) EditSystem(serialNumber string, arg interface{}) error {
 	c.login()
 	defer c.logout()
 	args := []interface{}{"system", serialNumber, "edit", arg, c.token}
@@ -96,10 +96,10 @@ func (c *Client) EditSystem(serialNumber string, arg map[string]interface{}) err
 	return err
 }
 
-func (c *Client) AddSystem(serialNumber string, arg []map[string]interface{}) error {
+func (c *Client) AddSystem(serialNumber string, arg map[string]interface{}) error {
 	c.login()
 	defer c.logout()
-	args := []interface{}{"system", serialNumber, "add", c.token}
+	args := []interface{}{"system", serialNumber, "add", arg, c.token}
 	err := c.client.Call("xapi_object_edit", args, nil)
 	return err
 }
@@ -107,7 +107,7 @@ func (c *Client) AddSystem(serialNumber string, arg []map[string]interface{}) er
 func (c *Client) RemoveSystem(serialNumber string) error {
 	c.login()
 	defer c.logout()
-	args := []interface{}{"system", serialNumber, "remove", c.token}
+	args := []interface{}{serialNumber, c.token}
 	err := c.client.Call("remove_system", args, nil)
 	return err
 }
