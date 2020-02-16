@@ -37,6 +37,8 @@ func main() {
 
 	raft.RegisterCommand(&raftd.WriteCommand{})
 	raft.RegisterCommand(&raftd.CobblerCommand{})
+	raft.RegisterCommand(&raftd.UploadCommand{})
+	raft.RegisterCommand(&raftd.UpdateCommand{})
 
 	path := flag.Arg(0)
 	if err := os.MkdirAll(path, 0744); err != nil {

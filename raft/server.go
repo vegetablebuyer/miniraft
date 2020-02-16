@@ -906,7 +906,6 @@ func (s *server) Do(command Command) (interface{}, error) {
 // Processes a command.
 func (s *server) processCommand(command Command, e *ev) {
 	s.debugln("server.command.process")
-
 	// Create an entry for the command in the log.
 	entry, err := s.log.createEntry(s.currentTerm, command, e)
 
@@ -931,6 +930,7 @@ func (s *server) processCommand(command Command, e *ev) {
 		s.processAppendEntriesResponse(
 			newAppendEntriesResponse(s.currentTerm, true, s.log.currentIndex(), s.log.CommitIndex()))
 	}
+	s.writeConf()
 }
 
 //--------------------------------------
@@ -951,7 +951,6 @@ func (s *server) processAppendEntriesRequest(req *AppendEntriesRequest) (*Append
 		s.debugln("server.ae.error: stale term")
 		return newAppendEntriesResponse(s.currentTerm, false, s.log.currentIndex(), s.log.CommitIndex()), false
 	}
-
 	if req.Term == s.currentTerm {
 		_assert(s.State() != Leader, "leader.elected.at.same.term.%d\n", s.currentTerm)
 
@@ -986,7 +985,7 @@ func (s *server) processAppendEntriesRequest(req *AppendEntriesRequest) (*Append
 		s.debugln("server.ae.commit.error: ", err)
 		return newAppendEntriesResponse(s.currentTerm, false, s.log.currentIndex(), s.log.CommitIndex()), true
 	}
-
+	s.writeConf()
 	// once the server appended and committed all the log entries from the leader
 
 	return newAppendEntriesResponse(s.currentTerm, true, s.log.currentIndex(), s.log.CommitIndex()), true
@@ -1036,6 +1035,7 @@ func (s *server) processAppendEntriesResponse(resp *AppendEntriesResponse) {
 		s.log.setCommitIndex(commitIndex)
 		s.debugln("commit index ", commitIndex)
 	}
+	s.writeConf()
 }
 
 // processVoteReponse processes a vote request:

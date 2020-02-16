@@ -182,7 +182,11 @@ func (l *Log) open(path string) error {
 				if err != nil {
 					continue
 				}
-				if command.CommandName() != "cobbler" {
+				switch command.CommandName() {
+				case "cobbler":
+				case "upload":
+				case "update":
+				default:
 					l.ApplyFunc(entry, command)
 				}
 			}

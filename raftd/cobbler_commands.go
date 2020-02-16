@@ -14,6 +14,12 @@ type CobblerCommand struct {
 	Args         interface{} `json:"args"`
 }
 
+type CobblerResult struct {
+	IsSucceed    bool   `json:"is_succeed"`
+	SerialNumber string `json:"serial_number"`
+	Result       string `json:"result"`
+}
+
 // Creates a new write command.
 func NewCobblerCommand(serialNumber string, action string, args interface{}) *CobblerCommand {
 	return &CobblerCommand{

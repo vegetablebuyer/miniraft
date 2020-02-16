@@ -115,6 +115,9 @@ func (s *Server) ListenAndServe(leader string) error {
 	s.router.HandleFunc("/db/{key}", s.readHandler).Methods("GET")
 	s.router.HandleFunc("/db/{key}", s.writeHandler).Methods("POST")
 	s.router.HandleFunc("/cobbler", s.cobblerHandler).Methods("POST")
+	s.router.HandleFunc("/cblr/svc/op/upload", s.uploadHandler)
+	s.router.HandleFunc("/cblr/svc/op/trig/mode/addpool/system/{sn}", s.updatePoolHandler)
+	s.router.HandleFunc("/cblr/svc/op/task/mode/init_finished/task/{job_id}", s.updateTaskHandler)
 	s.router.HandleFunc("/join", s.joinHandler).Methods("POST")
 
 	log.Println("Listening at:", s.connectionString())
@@ -161,7 +164,7 @@ func (s *Server) joinHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) readHandler(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	value := s.db.Get(vars["key"])
-	w.Write([]byte(value))
+	_, _ = w.Write([]byte(value))
 }
 
 func (s *Server) writeHandler(w http.ResponseWriter, req *http.Request) {
@@ -182,7 +185,70 @@ func (s *Server) writeHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (s *Server) updatePoolHandler(w http.ResponseWriter, req *http.Request) {
+	leaderName := s.raftServer.Leader()
+	if leaderName != s.raftServer.Name() {
+		s.redirectToLeader(w, req)
+		return
+	}
+	serialNumber := req.Header.Get("X_SERIALNUM")
+	ip := req.Header.Get("X_IP")
+	updateCommand := NewUpdateCommand(serialNumber, serialNumber, "pool", "system", ip)
+	_, err := s.raftServer.Do(updateCommand)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
+func (s *Server) updateTaskHandler(w http.ResponseWriter, req *http.Request) {
+	leaderName := s.raftServer.Leader()
+	if leaderName != s.raftServer.Name() {
+		s.redirectToLeader(w, req)
+		return
+	}
+	vars := mux.Vars(req)
+	jobId := vars["job_id"]
+	serialNumber := req.Header.Get("X_SERIALNUM")
+	ip := req.Header.Get("X_IP")
+
+	updateCommand := NewUpdateCommand(serialNumber, jobId, "task", jobId, ip)
+	_, err := s.raftServer.Do(updateCommand)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
+func (s *Server) uploadHandler(w http.ResponseWriter, req *http.Request) {
+	log.Println("start upload report file")
+	leaderName := s.raftServer.Leader()
+	if leaderName != s.raftServer.Name() {
+		s.redirectToLeader(w, req)
+		return
+	}
+	serialNumber := req.Header.Get("name")
+	b, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	info := string(b)
+
+	// Execute the command against the Raft server.
+	_, err = s.raftServer.Do(NewUploadCommand(serialNumber, info))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
 func (s *Server) cobblerHandler(w http.ResponseWriter, req *http.Request) {
+	log.Println("processing cobbler request:")
+
+	// If i was not the leader, transmit the request to the leader to process
+	leaderName := s.raftServer.Leader()
+	if leaderName != s.raftServer.Name() {
+		s.redirectToLeader(w, req)
+		return
+	}
 
 	// Read the value from the POST body.
 	b, err := ioutil.ReadAll(req.Body)
@@ -190,15 +256,50 @@ func (s *Server) cobblerHandler(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	log.Println("args:", string(b))
 	args := &CobblerCommand{}
+
 	if err = json.Unmarshal(b, args); err != nil {
-		panic(err)
+		handleResponse(w, err.Error(), http.StatusBadRequest)
+	}
+	result := &CobblerResult{
+		SerialNumber: args.SerialNumber,
 	}
 
 	// Execute the command against the Raft server.
-	//_, err = s.raftServer.Do(NewWriteCommand(vars["key"], value))
 	_, err = s.raftServer.Do(NewCobblerCommand(args.SerialNumber, args.Action, args.Args))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		result.IsSucceed = false
+		result.Result = err.Error()
+	} else {
+		result.IsSucceed = true
+		result.Result = ""
 	}
+	log.Println(result)
+	if b, err := json.Marshal(result); err != nil {
+		handleResponse(w, err.Error(), http.StatusBadRequest)
+	} else {
+		handleResponse(w, string(b), http.StatusOK)
+	}
+}
+
+func (s *Server) redirectToLeader(w http.ResponseWriter, req *http.Request) {
+	leader := s.raftServer.Peers()[s.raftServer.Leader()]
+	url := fmt.Sprintf("%v%v", leader.ConnectionString, req.URL)
+	log.Println("redirect to :", url)
+	if res, err := httpPost(url, "json", req.Body, req.Header); err != nil {
+		handleResponse(w, err.Error(), http.StatusBadRequest)
+	} else {
+		p := make([]byte, res.ContentLength)
+		_, _ = res.Body.Read(p)
+		handleResponse(w, string(p), res.StatusCode)
+	}
+}
+
+func handleResponse(w http.ResponseWriter, message string, code int) {
+	w.Header().Set("Content-Type", "text/json; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(code)
+	log.Println(message)
+	_, _ = fmt.Fprintln(w, message)
 }
